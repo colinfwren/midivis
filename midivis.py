@@ -2,6 +2,7 @@ import midi
 import math
 import argparse
 from collections import OrderedDict
+from base64 import b64encode
 
 parser = argparse.ArgumentParser(description="Turn a .midi file into a graph")
 parser.add_argument('midi_file', help='Path to .midi file to process')
@@ -50,6 +51,12 @@ class Phrase:
         if len(notes) < 16:
             notes.append(['H00'])
         return notes
+
+    @property
+    def notes_as_b64(self):
+        notes = self.notes
+        return b64encode(str(notes))
+
 
 
 # Get time signature events
@@ -110,6 +117,27 @@ for index, time_sig in enumerate(time_sigs):
                 )
             )
 
+b64_phrase_dict = {}
+b64_phrase_keys = []
+
+for phrase in phrases:
+    phrase_key = phrase.notes_as_b64
+    if not b64_phrase_dict.get(phrase_key, None):
+        b64_phrase_dict[phrase_key] = phrase.notes
+    b64_phrase_keys.append(phrase_key)
+
+
+phrase_dict = {}
+phrase_dict_lookup = {}
+phrase_keys = []
+
+for index, key in enumerate(b64_phrase_dict.keys()):
+    phrase_dict[index] = b64_phrase_dict[key]
+    phrase_dict_lookup[key] = index
+
+for phrase in b64_phrase_keys:
+    phrase_keys.append(phrase_dict_lookup[phrase])
+
 
 def chunks(l, n):
     """Yield successive n-sized chunks from l."""
@@ -129,7 +157,8 @@ def get_drum_name(name):
         return name
     return drum_names[name]
 
-chains = list(chunks(phrases, 10))
+
+chains = list(chunks(phrase_keys, 16))
 
 
 def print_drums(notes):
@@ -150,5 +179,15 @@ def print_drums(notes):
         ))
     return '\n'.join(rows)
 
-print(phrases[0].notes)
-print(print_drums(phrases[1].notes))
+
+# for phrase in phrase_dict.items():
+#     print('{:x}'.format(phrase[0]).rjust(10))
+#     print(print_drums(phrase[1]))
+
+for index, chain in enumerate(chains):
+    print(hex(index).rjust(10))
+    for phrase_index, phrase in enumerate(chain):
+        print('{ind}{phrase}'.format(
+            ind=hex(phrase_index).ljust(4),
+            phrase=hex(phrase)
+        ))
